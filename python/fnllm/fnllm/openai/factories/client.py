@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 from openai import AsyncOpenAI
 
-from fnllm.openai.config import AzureOpenAIConfig, OpenAIConfig, PublicOpenAIConfig
+from fnllm.openai.config import (AzureOpenAIConfig, OpenAIConfig,
+                                 PublicOpenAIConfig)
 
 from .max_retries import get_max_retries
 
@@ -21,13 +22,11 @@ def create_openai_client(
 ) -> OpenAIClient:
     """Create a new OpenAI client instance."""
     if config.azure:
-        from .create_azure_openai_client import (
-            TokenProvider,
-            create_azure_openai_client,
-        )
+        from .create_azure_openai_client import (TokenCredential,
+                                                 create_azure_openai_client)
 
         config = cast(AzureOpenAIConfig, config)
-        credential = cast(TokenProvider | None, credential)
+        credential = cast(TokenCredential | None, credential)
         return create_azure_openai_client(config, credential=credential)
 
     return create_public_openai_client(cast(PublicOpenAIConfig, config))

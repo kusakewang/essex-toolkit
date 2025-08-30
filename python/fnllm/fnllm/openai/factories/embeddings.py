@@ -62,6 +62,7 @@ def create_openai_embeddings_rest_llm(
     api_key: str,
     model: str,
     *,
+    azure: bool = False,
     api_version: str | None = None,
     organization: str | None = None,
     timeout: float = 60.0,
@@ -72,14 +73,21 @@ def create_openai_embeddings_rest_llm(
     events = events or LLMEvents()
 
     # Create appropriate config for caching and other services
-    from fnllm.openai.config import PublicOpenAIConfig
-    config = PublicOpenAIConfig(
-        model=model,
-        base_url=base_url,
-        api_key=api_key,
-        organization=organization,
-        timeout=timeout,
-    )
+    from fnllm.openai.config import AzureOpenAIConfig, PublicOpenAIConfig
+    if azure:
+        config = AzureOpenAIConfig(
+            model=model,
+            endpoint=base_url,
+            organization=organization,
+            api_version=api_version,
+        )
+    else:
+        config = PublicOpenAIConfig(
+            model=model,
+            base_url=base_url,
+            api_key=api_key,
+            organization=organization
+        )
 
     backoff_limiter = create_backoff_limiter()
     limiter = create_limiter(config, backoff_limiter)

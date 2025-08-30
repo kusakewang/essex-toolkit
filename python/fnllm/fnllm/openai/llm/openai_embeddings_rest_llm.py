@@ -231,10 +231,6 @@ class OpenAIEmbeddingsRestLLMImpl(
             # Create a mock raw_model structure similar to OpenAI SDK response
             # We'll cast this to Any to avoid type issues
             raw_model = self._to_create_embedding_response(response_data, self._model)
-            print(raw_model.data)
-            print(raw_model.usage)
-            print(raw_model.object)
-            print(raw_model.model)
 
             return OpenAIEmbeddingsOutput(
                 raw_input=prompt,

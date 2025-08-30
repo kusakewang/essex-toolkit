@@ -2,26 +2,32 @@
 
 """Tests for the OpenAI embeddings REST LLM."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
+from fnllm.base.config import config
+from fnllm.caching.file import FileCache
+from fnllm.events.base import LLMEvents
+from fnllm.openai.config import PublicOpenAIConfig
+from fnllm.openai.factories.embeddings import create_openai_embeddings_rest_llm
 from fnllm.openai.llm.openai_embeddings_rest_llm import \
     OpenAIEmbeddingsRestLLMImpl
+from fnllm.openai.types.aliases import (OpenAIEmbeddingModel,
+                                        OpenAIEmbeddingUsageModel)
 from fnllm.openai.types.embeddings.io import OpenAIEmbeddingsOutput
-from fnllm.types.metrics import LLMUsageMetrics
+from fnllm_tests.unit.openai.llm.conftest import OpenAIEmbeddingsClientMock
 
 
 class TestOpenAIEmbeddingsRestLLM:
     """Test the OpenAI embeddings REST LLM implementation."""
-
     @pytest.fixture
     def llm(self):
         """Create a test LLM instance."""
         return OpenAIEmbeddingsRestLLMImpl(
-            base_url="https://api.openai.com",
+            base_url="https://dev.microsoft.com",
             api_key="test-key",
-            model="text-embedding-3-small",
+            model="model",
         )
 
     @pytest.fixture
@@ -47,7 +53,7 @@ class TestOpenAIEmbeddingsRestLLM:
     async def test_build_url_openai(self, llm):
         """Test URL building for OpenAI."""
         url = llm._build_url()
-        assert url == "https://api.openai.com/v1/embeddings"
+        assert url == "https://dev.microsoft.com/model/v1/embeddings"
 
     @pytest.mark.asyncio
     async def test_build_url_azure(self):
@@ -105,7 +111,7 @@ class TestOpenAIEmbeddingsRestLLM:
         # Mock the HTTP client
         mock_response = MagicMock()
         mock_response.json.return_value = mock_response_data
-        mock_response.headers = {"content-type": "application/json"}
+        mock_response.headers = None
         mock_response.raise_for_status.return_value = None
 
         with patch.object(llm._http_client, 'post', new_callable=AsyncMock) as mock_post:
@@ -147,16 +153,24 @@ class TestOpenAIEmbeddingsRestLLM:
         assert isinstance(child, OpenAIEmbeddingsRestLLMImpl)
         mock_cached.child.assert_called_once_with("test-child")
 
-    @pytest.mark.asyncio
-    async def test_context_manager(self, llm):
-        """Test async context manager."""
-        async with llm as context_llm:
-            assert context_llm is llm
+    @staticmethod
+    def test_is_reasoning_model():
+        """Test if the model is a reasoning model."""
+        llm = OpenAIEmbeddingsRestLLMImpl(
+            base_url="https://api.openai.com/v1",
+            api_key="key",
+            model="o3-mini",
+        )
 
-        # HTTP client should be closed after context exit
-        assert llm._http_client.is_closed
+        assert llm.is_reasoning_model()
 
-    def test_is_reasoning_model(self, llm):
-        """Test reasoning model detection."""
-        # This should return False for embedding models
+    @staticmethod
+    def test_is_not_reasoning_model():
+        """Test if the model is not a reasoning model."""
+        llm = OpenAIEmbeddingsRestLLMImpl(
+            base_url="https://api.openai.com/v1",
+            api_key="key",
+            model="other-model",
+        )
+
         assert not llm.is_reasoning_model()

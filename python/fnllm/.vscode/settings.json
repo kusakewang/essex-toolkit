@@ -15,5 +15,19 @@
 	"ruff.nativeServer": true,
 	"ruff.configuration": "pyproject.toml",
 	"python.analysis.typeCheckingMode": "standard",
-	"azure-pipelines.1ESPipelineTemplatesSchemaFile": true
+	"python.defaultInterpreterPath": "D:/Anaconda3/envs/fnllm/python.exe",
+	"azure-pipelines.1ESPipelineTemplatesSchemaFile": true,
+	"python.testing.unittestArgs": [
+		"-v",
+		"-s",
+		"fnllm_tests",
+		"-p",
+		"test_*.py"
+	],
+	"python.testing.pytestEnabled": true,
+	"python.testing.unittestEnabled": false,
+	"python.testing.pytestArgs": [
+		"-q", "fnllm_tests"
+	],
+	"python.testing.cwd": "${workspaceFolder}"
 }

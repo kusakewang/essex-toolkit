@@ -17,8 +17,8 @@ if TYPE_CHECKING:
     from fnllm.openai.services.openai_text_service import OpenAITextService
     from fnllm.openai.types import OpenAIEmbeddingsLLM
 
-# Type alias for any compatible OpenAI embeddings LLM implementation
-OpenAIEmbeddingsLLMType = Union[OpenAIEmbeddingsLLMImpl, OpenAIEmbeddingsRestLLMImpl]
+    # Type alias for any compatible OpenAI embeddings LLM implementation
+    OpenAIEmbeddingsLLMType = Union[OpenAIEmbeddingsLLMImpl, OpenAIEmbeddingsRestLLMImpl]
 
 EmbeddingInput: TypeAlias = str
 EmbeddingOutput: TypeAlias = list[float]
