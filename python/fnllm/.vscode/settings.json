@@ -15,8 +15,8 @@
 	"ruff.nativeServer": true,
 	"ruff.configuration": "pyproject.toml",
 	"python.analysis.typeCheckingMode": "standard",
-	"python.defaultInterpreterPath": "D:/Anaconda3/envs/fnllm/python.exe",
 	"azure-pipelines.1ESPipelineTemplatesSchemaFile": true,
+	"python.defaultInterpreterPath": "D:/Anaconda3/envs/fnllm/python.exe",
 	"python.testing.unittestArgs": [
 		"-v",
 		"-s",
