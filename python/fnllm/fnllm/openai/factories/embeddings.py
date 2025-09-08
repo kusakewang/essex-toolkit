@@ -68,7 +68,7 @@ def create_openai_embeddings_rest_llm(
     timeout: float = 60.0,
     cache: Cache | None = None,
     events: LLMEvents | None = None,
-) -> OpenAIEmbeddingsRestLLMImpl:
+) -> OpenAIEmbeddingsLLM:
     """Create an OpenAI embeddings LLM using REST API calls."""
     events = events or LLMEvents()
 
