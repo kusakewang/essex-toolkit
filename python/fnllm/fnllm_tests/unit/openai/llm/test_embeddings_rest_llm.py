@@ -2,25 +2,18 @@
 
 """Tests for the OpenAI embeddings REST LLM."""
 
-from unittest.mock import ANY, AsyncMock, MagicMock, Mock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
-from fnllm.base.config import config
-from fnllm.caching.file import FileCache
-from fnllm.events.base import LLMEvents
-from fnllm.openai.config import PublicOpenAIConfig
-from fnllm.openai.factories.embeddings import create_openai_embeddings_rest_llm
 from fnllm.openai.llm.openai_embeddings_rest_llm import \
     OpenAIEmbeddingsRestLLMImpl
-from fnllm.openai.types.aliases import (OpenAIEmbeddingModel,
-                                        OpenAIEmbeddingUsageModel)
 from fnllm.openai.types.embeddings.io import OpenAIEmbeddingsOutput
-from fnllm_tests.unit.openai.llm.conftest import OpenAIEmbeddingsClientMock
 
 
 class TestOpenAIEmbeddingsRestLLM:
     """Test the OpenAI embeddings REST LLM implementation."""
+
     @pytest.fixture
     def llm(self):
         """Create a test LLM instance."""
@@ -39,14 +32,11 @@ class TestOpenAIEmbeddingsRestLLM:
                 {
                     "object": "embedding",
                     "index": 0,
-                    "embedding": [0.1, 0.2, 0.3, 0.4, 0.5]
+                    "embedding": [0.1, 0.2, 0.3, 0.4, 0.5],
                 }
             ],
             "model": "text-embedding-3-small",
-            "usage": {
-                "prompt_tokens": 5,
-                "total_tokens": 5
-            }
+            "usage": {"prompt_tokens": 5, "total_tokens": 5},
         }
 
     @pytest.mark.asyncio
@@ -62,7 +52,7 @@ class TestOpenAIEmbeddingsRestLLM:
             base_url="https://test.openai.azure.com",
             api_key="test-key",
             model="test-deployment",
-            api_version="2024-02-01"
+            api_version="2024-02-01",
         )
         url = llm._build_url()
         expected = "https://test.openai.azure.com/openai/deployments/test-deployment/embeddings?api-version=2024-02-01"
@@ -79,7 +69,7 @@ class TestOpenAIEmbeddingsRestLLM:
         expected = {
             "input": "Test text",
             "model": "text-embedding-3-small",
-            "dimensions": 512
+            "dimensions": 512,
         }
         assert body == expected
 
@@ -90,7 +80,7 @@ class TestOpenAIEmbeddingsRestLLM:
             base_url="https://test.openai.azure.com",
             api_key="test-key",
             model="test-deployment",
-            api_version="2024-02-01"
+            api_version="2024-02-01",
         )
 
         prompt = "Test text"
@@ -99,10 +89,7 @@ class TestOpenAIEmbeddingsRestLLM:
         body = llm._prepare_request_body(prompt, params)
 
         # Model should be removed for Azure deployments
-        expected = {
-            "input": "Test text",
-            "dimensions": 512
-        }
+        expected = {"input": "Test text", "dimensions": 512}
         assert body == expected
 
     @pytest.mark.asyncio
@@ -114,7 +101,9 @@ class TestOpenAIEmbeddingsRestLLM:
         mock_response.headers = None
         mock_response.raise_for_status.return_value = None
 
-        with patch.object(llm._http_client, 'post', new_callable=AsyncMock) as mock_post:
+        with patch.object(
+            llm._http_client, "post", new_callable=AsyncMock
+        ) as mock_post:
             mock_post.return_value = mock_response
 
             result = await llm._execute_llm("Test text", {})
@@ -134,10 +123,14 @@ class TestOpenAIEmbeddingsRestLLM:
         response = Response(400, json={"error": {"message": "Bad request"}})
         error = HTTPStatusError("Bad request", request=request, response=response)
 
-        with patch.object(llm._http_client, 'post', new_callable=AsyncMock) as mock_post:
+        with patch.object(
+            llm._http_client, "post", new_callable=AsyncMock
+        ) as mock_post:
             mock_post.side_effect = error
 
-            with pytest.raises(RuntimeError, match="HTTP 400 error from embeddings API"):
+            with pytest.raises(
+                RuntimeError, match="HTTP 400 error from embeddings API"
+            ):
                 await llm._execute_llm("Test text", {})
 
     @pytest.mark.asyncio

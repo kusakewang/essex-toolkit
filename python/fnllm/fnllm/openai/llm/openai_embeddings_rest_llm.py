@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING, Any, Dict, cast
 
 import httpx
@@ -51,7 +50,8 @@ class OpenAIEmbeddingsRestLLMImpl(
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ] | None = None,
+        ]
+        | None = None,
         usage_extractor: OpenAIUsageExtractor[OpenAIEmbeddingsOutput] | None = None,
         variable_injector: VariableInjector | None = None,
         rate_limiter: RateLimiter[
@@ -59,13 +59,15 @@ class OpenAIEmbeddingsRestLLMImpl(
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ] | None = None,
+        ]
+        | None = None,
         retryer: Retryer[
             OpenAIEmbeddingsInput,
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ] | None = None,
+        ]
+        | None = None,
         model_parameters: OpenAIEmbeddingsParameters | None = None,
         events: LLMEvents | None = None,
     ):
@@ -142,17 +144,16 @@ class OpenAIEmbeddingsRestLLMImpl(
         if self._api_version:
             # Azure OpenAI format
             return f"{self._base_url}/openai/deployments/{self._model}/embeddings?api-version={self._api_version}"
-        elif "microsoft" in self._base_url:
+        if "microsoft" in self._base_url:
             # qwen model api format
             return f"{self._base_url}/{self._model}/v1/embeddings"
-        else:
-            # OpenAI format
-            return f"{self._base_url}/v1/embeddings"
+        # OpenAI format
+        return f"{self._base_url}/v1/embeddings"
 
     def _prepare_request_body(
         self,
         prompt: OpenAIEmbeddingsInput,
-        embeddings_parameters: OpenAIEmbeddingsParameters
+        embeddings_parameters: OpenAIEmbeddingsParameters,
     ) -> dict[str, Any]:
         """Prepare the request body for the REST API call."""
         body = {
@@ -177,12 +178,15 @@ class OpenAIEmbeddingsRestLLMImpl(
         return headers
 
     @staticmethod
-    def _to_create_embedding_response(response_data: Dict[str, Any], fallback_model: str) -> CreateEmbeddingResponse:
-        model = response_data.get("model", fallback_model).replace("/vllm-workspace/", "")
+    def _to_create_embedding_response(
+        response_data: Dict[str, Any], fallback_model: str
+    ) -> CreateEmbeddingResponse:
+        model = response_data.get("model", fallback_model).replace(
+            "/vllm-workspace/", ""
+        )
         data = [
-            Embedding(embedding=d["embedding"],
-                      index=d["index"],
-                      object="embedding") for d in response_data['data']
+            Embedding(embedding=d["embedding"], index=d["index"], object="embedding")
+            for d in response_data["data"]
         ]
 
         u = response_data.get("usage", {})
@@ -250,7 +254,9 @@ class OpenAIEmbeddingsRestLLMImpl(
             except Exception:
                 error_detail = f": {e.response.text}"
 
-            raise RuntimeError(f"HTTP {e.response.status_code} error from embeddings API{error_detail}") from e
+            raise RuntimeError(
+                f"HTTP {e.response.status_code} error from embeddings API{error_detail}"
+            ) from e
         except Exception as e:
             raise RuntimeError(f"Failed to call embeddings API: {str(e)}") from e
 

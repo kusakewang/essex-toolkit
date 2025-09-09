@@ -37,5 +37,7 @@ def _get_azure_ad_token_provider(
     if config.api_key is not None:
         return None
 
-    credential = credential or DefaultAzureCredential(exclude_environment_credential=True, exclude_shared_token_cache_credential=True)
+    credential = credential or DefaultAzureCredential(
+        exclude_environment_credential=True, exclude_shared_token_cache_credential=True
+    )
     return get_bearer_token_provider(credential, config.audience)
