@@ -51,7 +51,8 @@ class OpenAIEmbeddingsRestLLMImpl(
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ] | None = None,
+        ]
+        | None = None,
         usage_extractor: OpenAIUsageExtractor[OpenAIEmbeddingsOutput] | None = None,
         variable_injector: VariableInjector | None = None,
         rate_limiter: RateLimiter[
@@ -59,13 +60,15 @@ class OpenAIEmbeddingsRestLLMImpl(
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ] | None = None,
+        ]
+        | None = None,
         retryer: Retryer[
             OpenAIEmbeddingsInput,
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ] | None = None,
+        ]
+        | None = None,
         model_parameters: OpenAIEmbeddingsParameters | None = None,
         events: LLMEvents | None = None,
     ):
@@ -253,7 +256,9 @@ class OpenAIEmbeddingsRestLLMImpl(
                 # Could not decode JSON, fallback to response text
                 error_detail = f": {e.response.text}"
 
-            error_msg = f"HTTP {e.response.status_code} error from embeddings API{error_detail}"
+            error_msg = (
+                f"HTTP {e.response.status_code} error from embeddings API{error_detail}"
+            )
             raise RuntimeError(error_msg) from e
         except Exception as e:
             error_msg = f"Failed to call embeddings API: {e!s}"
