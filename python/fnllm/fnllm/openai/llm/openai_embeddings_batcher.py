@@ -36,12 +36,6 @@ class OpenAIEmbeddingBatcher(Batcher[EmbeddingInput, EmbeddingOutput]):
     This batcher works with both OpenAI SDK-based and REST API-based embeddings LLMs:
     - OpenAIEmbeddingsLLMImpl (uses OpenAI Python SDK)
     - OpenAIEmbeddingsRestLLMImpl (uses direct HTTP calls via httpx)
-
-    The batcher automatically handles:
-    - Batching multiple inputs to reduce API calls
-    - Token counting and batch size limits
-    - Text splitting for oversized inputs
-    - Weighted averaging of embeddings for split texts
     """
 
     def __init__(
