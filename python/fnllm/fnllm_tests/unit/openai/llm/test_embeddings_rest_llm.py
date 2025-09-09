@@ -6,8 +6,7 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
-from fnllm.openai.llm.openai_embeddings_rest_llm import \
-    OpenAIEmbeddingsRestLLMImpl
+from fnllm.openai.llm.openai_embeddings_rest_llm import OpenAIEmbeddingsRestLLMImpl
 from fnllm.openai.types.embeddings.io import OpenAIEmbeddingsOutput
 
 

@@ -12,8 +12,7 @@ from fnllm.utils.batch import Batcher, CallBatch
 
 if TYPE_CHECKING:
     from fnllm.openai.llm.openai_embeddings_llm import OpenAIEmbeddingsLLMImpl
-    from fnllm.openai.llm.openai_embeddings_rest_llm import \
-        OpenAIEmbeddingsRestLLMImpl
+    from fnllm.openai.llm.openai_embeddings_rest_llm import OpenAIEmbeddingsRestLLMImpl
     from fnllm.openai.services.openai_text_service import OpenAITextService
     from fnllm.openai.types import OpenAIEmbeddingsLLM
 

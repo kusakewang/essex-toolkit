@@ -7,14 +7,15 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Dict, cast
 
 import httpx
-from openai.types.create_embedding_response import (CreateEmbeddingResponse,
-                                                    Usage)
+from openai.types.create_embedding_response import CreateEmbeddingResponse, Usage
 from openai.types.embedding import Embedding
 
 from fnllm.base.base_llm import BaseLLM
 from fnllm.openai.services.openai_usage_extractor import OpenAIUsageExtractor
-from fnllm.openai.types.embeddings.io import (OpenAIEmbeddingsInput,
-                                              OpenAIEmbeddingsOutput)
+from fnllm.openai.types.embeddings.io import (
+    OpenAIEmbeddingsInput,
+    OpenAIEmbeddingsOutput,
+)
 from fnllm.openai.types.embeddings.parameters import OpenAIEmbeddingsParameters
 from fnllm.openai.utils import is_reasoning_model
 from fnllm.types.metrics import LLMUsageMetrics
