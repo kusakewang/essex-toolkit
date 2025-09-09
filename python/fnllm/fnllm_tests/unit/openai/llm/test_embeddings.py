@@ -10,6 +10,7 @@ from fnllm.openai.config import AzureOpenAIConfig
 from fnllm.openai.factories.embeddings import create_openai_embeddings_llm
 from fnllm.openai.llm.openai_embeddings_llm import OpenAIEmbeddingsLLMImpl
 from fnllm.openai.types.aliases import OpenAIEmbeddingModel, OpenAIEmbeddingUsageModel
+
 from fnllm_tests.unit.openai.llm.conftest import OpenAIEmbeddingsClientMock
 
 

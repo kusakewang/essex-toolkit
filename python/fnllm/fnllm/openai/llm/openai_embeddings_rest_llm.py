@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from openai.types.create_embedding_response import CreateEmbeddingResponse, Usage
@@ -51,8 +51,7 @@ class OpenAIEmbeddingsRestLLMImpl(
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ]
-        | None = None,
+        ] | None = None,
         usage_extractor: OpenAIUsageExtractor[OpenAIEmbeddingsOutput] | None = None,
         variable_injector: VariableInjector | None = None,
         rate_limiter: RateLimiter[
@@ -60,15 +59,13 @@ class OpenAIEmbeddingsRestLLMImpl(
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ]
-        | None = None,
+        ] | None = None,
         retryer: Retryer[
             OpenAIEmbeddingsInput,
             OpenAIEmbeddingsOutput,
             None,
             OpenAIEmbeddingsParameters,
-        ]
-        | None = None,
+        ] | None = None,
         model_parameters: OpenAIEmbeddingsParameters | None = None,
         events: LLMEvents | None = None,
     ):
@@ -180,7 +177,7 @@ class OpenAIEmbeddingsRestLLMImpl(
 
     @staticmethod
     def _to_create_embedding_response(
-        response_data: Dict[str, Any], fallback_model: str
+        response_data: dict[str, Any], fallback_model: str
     ) -> CreateEmbeddingResponse:
         model = response_data.get("model", fallback_model).replace(
             "/vllm-workspace/", ""
@@ -224,8 +221,8 @@ class OpenAIEmbeddingsRestLLMImpl(
 
             # Parse usage information
             usage: LLMUsageMetrics | None = None
-            if "usage" in response_data and response_data["usage"]:
-                usage_data = response_data["usage"]
+            if response_data.get("usage"):
+                usage_data = response_data.get("usage")
                 usage = LLMUsageMetrics(
                     input_tokens=usage_data.get("prompt_tokens", 0),
                 )
@@ -252,14 +249,15 @@ class OpenAIEmbeddingsRestLLMImpl(
                 error_data = e.response.json()
                 if "error" in error_data:
                     error_detail = f": {error_data['error'].get('message', str(error_data['error']))}"
-            except Exception:
+            except (ValueError, httpx.DecodingError):
+                # Could not decode JSON, fallback to response text
                 error_detail = f": {e.response.text}"
 
-            raise RuntimeError(
-                f"HTTP {e.response.status_code} error from embeddings API{error_detail}"
-            ) from e
+            error_msg = f"HTTP {e.response.status_code} error from embeddings API{error_detail}"
+            raise RuntimeError(error_msg) from e
         except Exception as e:
-            raise RuntimeError(f"Failed to call embeddings API: {str(e)}") from e
+            error_msg = f"Failed to call embeddings API: {e!s}"
+            raise RuntimeError(error_msg) from e
 
     async def __aenter__(self):
         """Async context manager entry."""
