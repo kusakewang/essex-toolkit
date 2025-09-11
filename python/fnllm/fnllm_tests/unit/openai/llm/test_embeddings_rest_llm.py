@@ -2,11 +2,18 @@
 
 """Tests for the OpenAI embeddings REST LLM."""
 
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fnllm.openai.llm.openai_embeddings_rest_llm import OpenAIEmbeddingsRestLLMImpl
+
+from fnllm.openai.llm.openai_embeddings_rest_llm import \
+    OpenAIEmbeddingsRestLLMImpl
 from fnllm.openai.types.embeddings.io import OpenAIEmbeddingsOutput
+
+if TYPE_CHECKING:
+    from fnllm.openai.types.embeddings.parameters import \
+        OpenAIEmbeddingsParameters
 
 
 class TestOpenAIEmbeddingsRestLLM:
@@ -82,7 +89,10 @@ class TestOpenAIEmbeddingsRestLLM:
         )
 
         prompt = "Test text"
-        params = {"model": "test-deployment", "dimensions": 512}
+        params: OpenAIEmbeddingsParameters = {
+            "model": "test-deployment",
+            "dimensions": 512,
+        }
 
         body = llm._prepare_request_body(prompt, params)
 
@@ -109,7 +119,7 @@ class TestOpenAIEmbeddingsRestLLM:
             assert isinstance(result, OpenAIEmbeddingsOutput)
             assert result.raw_input == "Test text"
             assert result.embeddings == [[0.1, 0.2, 0.3, 0.4, 0.5]]
-            assert result.usage.input_tokens == 5
+            assert result.usage.input_tokens == 5  # type: ignore
 
     @pytest.mark.asyncio
     async def test_execute_llm_http_error(self, llm):

@@ -7,15 +7,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, cast
 
 import httpx
-from openai.types.create_embedding_response import CreateEmbeddingResponse, Usage
+from openai.types.create_embedding_response import (CreateEmbeddingResponse,
+                                                    Usage)
 from openai.types.embedding import Embedding
 
 from fnllm.base.base_llm import BaseLLM
 from fnllm.openai.services.openai_usage_extractor import OpenAIUsageExtractor
-from fnllm.openai.types.embeddings.io import (
-    OpenAIEmbeddingsInput,
-    OpenAIEmbeddingsOutput,
-)
+from fnllm.openai.types.embeddings.io import (OpenAIEmbeddingsInput,
+                                              OpenAIEmbeddingsOutput)
 from fnllm.openai.types.embeddings.parameters import OpenAIEmbeddingsParameters
 from fnllm.openai.utils import is_reasoning_model
 from fnllm.types.metrics import LLMUsageMetrics
@@ -45,7 +44,7 @@ class OpenAIEmbeddingsRestLLMImpl(
         *,
         api_version: str | None = None,
         organization: str | None = None,
-        timeout: float = 60.0,
+        timeout: float = 180.0,
         cached: Cached[
             OpenAIEmbeddingsInput,
             OpenAIEmbeddingsOutput,
@@ -101,7 +100,9 @@ class OpenAIEmbeddingsRestLLMImpl(
 
         self._http_client = httpx.AsyncClient(
             headers=headers,
-            timeout=self._timeout,
+            http2=False,
+            timeout=httpx.Timeout(connect=10, read=60.0, write=30.0, pool=10.0),
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=20, keepalive_expiry=10.0),
         )
 
     def child(self, name: str) -> OpenAIEmbeddingsRestLLMImpl:
@@ -215,6 +216,7 @@ class OpenAIEmbeddingsRestLLMImpl(
         body = self._prepare_request_body(prompt, embeddings_parameters)
         headers = self._build_headers()
 
+        import asyncio
         try:
             response = await self._http_client.post(url, headers=headers, json=body)
             response.raise_for_status()
@@ -246,6 +248,9 @@ class OpenAIEmbeddingsRestLLMImpl(
                 headers=headers,
             )
 
+        except asyncio.CancelledError as e:
+            # Explicitly handle cancellation (timeout or parent task cancelled)
+            raise RuntimeError("Embeddings API call was cancelled (timeout or task cancelled).") from e
         except httpx.HTTPStatusError as e:
             error_detail = ""
             try:
