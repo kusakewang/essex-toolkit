@@ -45,29 +45,32 @@ class OpenAIEmbeddingsRestLLMImpl(
         api_version: str | None = None,
         organization: str | None = None,
         timeout: float = 180.0,
-        cached: Cached[
-            OpenAIEmbeddingsInput,
-            OpenAIEmbeddingsOutput,
-            None,
-            OpenAIEmbeddingsParameters,
-        ]
-        | None = None,
+        cached: (
+            Cached[
+                OpenAIEmbeddingsInput,
+                OpenAIEmbeddingsOutput,
+                None,
+                OpenAIEmbeddingsParameters,
+            ] | None
+        ) = None,
         usage_extractor: OpenAIUsageExtractor[OpenAIEmbeddingsOutput] | None = None,
         variable_injector: VariableInjector | None = None,
-        rate_limiter: RateLimiter[
-            OpenAIEmbeddingsInput,
-            OpenAIEmbeddingsOutput,
-            None,
-            OpenAIEmbeddingsParameters,
-        ]
-        | None = None,
-        retryer: Retryer[
-            OpenAIEmbeddingsInput,
-            OpenAIEmbeddingsOutput,
-            None,
-            OpenAIEmbeddingsParameters,
-        ]
-        | None = None,
+        rate_limiter: (
+            RateLimiter[
+                OpenAIEmbeddingsInput,
+                OpenAIEmbeddingsOutput,
+                None,
+                OpenAIEmbeddingsParameters,
+            ] | None
+        ) = None,
+        retryer: (
+            Retryer[
+                OpenAIEmbeddingsInput,
+                OpenAIEmbeddingsOutput,
+                None,
+                OpenAIEmbeddingsParameters,
+            ] | None
+        ) = None,
         model_parameters: OpenAIEmbeddingsParameters | None = None,
         events: LLMEvents | None = None,
     ):
@@ -98,11 +101,28 @@ class OpenAIEmbeddingsRestLLMImpl(
         if self._organization:
             headers["OpenAI-Organization"] = self._organization
 
+        # NOTE:
+        #  Container environments (especially under throttled or slower network conditions)
+        #  have exhibited httpx.ReadError / ReadTimeout when sending large batched embedding
+        #  requests. Previously the read timeout was hard-coded to 60s which could be
+        #  insufficient for big batches. We now derive timeouts from the user provided
+        #  "timeout" argument and add a small internal retry for transient low‑level
+        #  read/connection issues (separate from higher-level logical retries) to improve
+        #  robustness without masking genuine HTTP status errors.
         self._http_client = httpx.AsyncClient(
             headers=headers,
             http2=False,
-            timeout=httpx.Timeout(connect=10, read=60.0, write=30.0, pool=10.0),
-            limits=httpx.Limits(max_keepalive_connections=5, max_connections=20, keepalive_expiry=10.0),
+            timeout=httpx.Timeout(
+                connect=min(10.0, self._timeout / 3),  # keep connection timeout bounded
+                read=self._timeout,
+                write=min(30.0, self._timeout / 2),
+                pool=10.0,
+            ),
+            limits=httpx.Limits(
+                max_keepalive_connections=5,
+                max_connections=20,
+                keepalive_expiry=15.0,  # slightly longer to reduce reconnect churn in containers
+            ),
         )
 
     def child(self, name: str) -> OpenAIEmbeddingsRestLLMImpl:
@@ -218,7 +238,58 @@ class OpenAIEmbeddingsRestLLMImpl(
 
         import asyncio
         try:
-            response = await self._http_client.post(url, headers=headers, json=body)
+            # Internal lightweight retry for transient transport/read issues. This is
+            # intentionally narrow and distinct from the higher-level Retryer which
+            # handles semantic / rate / HTTP status retries. We only recreate the
+            # connection on specific low-level exceptions that often surface in
+            # containerized environments (e.g., httpx.ReadError when peer closes).
+            transient_errors: tuple[type[BaseException], ...] = (
+                httpx.ReadTimeout,
+                httpx.ReadError,
+                httpx.RemoteProtocolError,
+                httpx.ConnectError,
+            )
+            max_transient_attempts = 3
+            last_error: BaseException | None = None
+            response: httpx.Response | None = None
+            for attempt in range(1, max_transient_attempts + 1):
+                try:
+                    response = await self._http_client.post(
+                        url, headers=headers, json=body
+                    )
+                    break
+                except transient_errors as te:  # pragma: no cover - network timing dependent
+                    last_error = te
+                    # On last attempt, re-raise; else brief backoff and recreate client.
+                    if attempt == max_transient_attempts:
+                        raise
+                    # Recreate client to avoid potential broken pooled connection.
+                    await self._http_client.aclose()
+                    self._http_client = httpx.AsyncClient(
+                        headers=headers,
+                        http2=False,
+                        timeout=httpx.Timeout(
+                            connect=min(10.0, self._timeout / 3),
+                            read=self._timeout,
+                            write=min(30.0, self._timeout / 2),
+                            pool=10.0,
+                        ),
+                        limits=httpx.Limits(
+                            max_keepalive_connections=5,
+                            max_connections=20,
+                            keepalive_expiry=15.0,
+                        ),
+                    )
+                    # Simple incremental backoff (could be parameterized later)
+                    await asyncio.sleep(0.5 * attempt)
+                except Exception:
+                    # Non-transient error; surface immediately.
+                    raise
+            else:  # pragma: no cover - logic safeguard
+                # Should not hit due to break/raise logic above; keep mypy happy.
+                if last_error:
+                    raise last_error
+            assert response is not None, "Internal error: response not obtained after retries"
             response.raise_for_status()
 
             response_data = response.json()
