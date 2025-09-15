@@ -7,13 +7,10 @@ from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, Final
 
-from openai import (
-    APIConnectionError,
-    APIStatusError,
-    ConflictError,
-    InternalServerError,
-    RateLimitError,
-)
+import httpcore
+import httpx
+from openai import (APIConnectionError, APIStatusError, ConflictError,
+                    InternalServerError, RateLimitError)
 
 from fnllm.base.services.errors import InvalidLLMResultError
 from fnllm.limiting.base import Limiter
@@ -30,6 +27,12 @@ OPENAI_RETRYABLE_ERRORS: Final[list[type[Exception]]] = [
     OpenAINoChoicesAvailableError,
     InvalidLLMResultError,
     ConflictError,
+    httpx.TimeoutException, httpcore.TimeoutException,
+    httpx.ReadError, httpcore.ReadError,
+    httpx.WriteError, httpcore.WriteError,
+    httpx.ConnectError, httpcore.ConnectError,
+    httpx.PoolTimeout, httpx.ProxyError,
+    httpx.RemoteProtocolError, httpcore.LocalProtocolError, httpcore.RemoteProtocolError
 ]
 
 

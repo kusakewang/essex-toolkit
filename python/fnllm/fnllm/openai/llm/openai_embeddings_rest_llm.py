@@ -4,8 +4,10 @@
 
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING, Any, cast
 
+import httpcore
 import httpx
 from openai.types.create_embedding_response import (CreateEmbeddingResponse,
                                                     Usage)
@@ -27,6 +29,8 @@ if TYPE_CHECKING:
     from fnllm.events.base import LLMEvents
     from fnllm.openai.types.aliases import OpenAIEmbeddingModelName
     from fnllm.types.io import LLMInput
+
+TRANSPORT = httpx.AsyncHTTPTransport(http2=False, retries=2)
 
 
 class OpenAIEmbeddingsRestLLMImpl(
@@ -93,13 +97,13 @@ class OpenAIEmbeddingsRestLLMImpl(
         self._cached = cached
         self._global_model_parameters = model_parameters or {}
 
-        # Create HTTP client
-        headers = {
-            "Authorization": f"Bearer {self._api_key}",
-            "Content-Type": "application/json",
-        }
-        if self._organization:
-            headers["OpenAI-Organization"] = self._organization
+        # # Create HTTP client
+        # headers = {
+        #     "Authorization": f"Bearer {self._api_key}",
+        #     "Content-Type": "application/json",
+        # }
+        # if self._organization:
+        #     headers["OpenAI-Organization"] = self._organization
 
         # NOTE:
         #  Container environments (especially under throttled or slower network conditions)
@@ -110,17 +114,16 @@ class OpenAIEmbeddingsRestLLMImpl(
         #  read/connection issues (separate from higher-level logical retries) to improve
         #  robustness without masking genuine HTTP status errors.
         self._http_client = httpx.AsyncClient(
-            headers=headers,
-            http2=False,
+            transport=TRANSPORT,
             timeout=httpx.Timeout(
-                connect=min(10.0, self._timeout / 3),  # keep connection timeout bounded
-                read=self._timeout,
-                write=min(30.0, self._timeout / 2),
-                pool=10.0,
+                connect=15,  # keep connection timeout bounded
+                read=120,
+                write=120,
+                pool=60.0,
             ),
             limits=httpx.Limits(
-                max_keepalive_connections=5,
-                max_connections=20,
+                max_connections=100,
+                max_keepalive_connections=20,
                 keepalive_expiry=15.0,  # slightly longer to reduce reconnect churn in containers
             ),
         )
@@ -244,53 +247,69 @@ class OpenAIEmbeddingsRestLLMImpl(
             # connection on specific low-level exceptions that often surface in
             # containerized environments (e.g., httpx.ReadError when peer closes).
             transient_errors: tuple[type[BaseException], ...] = (
-                httpx.ReadTimeout,
-                httpx.ReadError,
+                # timeouts
+                httpx.TimeoutException,
+                httpcore.TimeoutException,
+
+                # read/write
+                httpx.ReadError, httpcore.ReadError,
+                httpx.WriteError, httpcore.WriteError,
+
+                # connect / pool / proxy
+                httpx.ConnectError, httpcore.ConnectError,
+                httpx.PoolTimeout,
+                httpx.ProxyError,
+
+                # protocol/reset
                 httpx.RemoteProtocolError,
-                httpx.ConnectError,
+                httpcore.LocalProtocolError, httpcore.RemoteProtocolError,
             )
-            max_transient_attempts = 3
-            last_error: BaseException | None = None
+            max_transient_attempts = 1
             response: httpx.Response | None = None
+
             for attempt in range(1, max_transient_attempts + 1):
                 try:
-                    response = await self._http_client.post(
-                        url, headers=headers, json=body
-                    )
-                    break
-                except transient_errors as te:  # pragma: no cover - network timing dependent
-                    last_error = te
+                    async with self._http_client.stream("POST", url, json=body, headers=headers) as resp:
+                        resp_bytes = await resp.aread()   # fully drain
+                        resp.raise_for_status()
+                        response = httpx.Response(200, content=resp_bytes)
+                        break
+                except transient_errors:  # pragma: no cover - network timing dependent
                     # On last attempt, re-raise; else brief backoff and recreate client.
                     if attempt == max_transient_attempts:
                         raise
                     # Recreate client to avoid potential broken pooled connection.
-                    await self._http_client.aclose()
+                    try:
+                        await self._http_client.aclose()
+                    except Exception:
+                        pass
                     self._http_client = httpx.AsyncClient(
-                        headers=headers,
-                        http2=False,
+                        transport=TRANSPORT,
                         timeout=httpx.Timeout(
-                            connect=min(10.0, self._timeout / 3),
-                            read=self._timeout,
-                            write=min(30.0, self._timeout / 2),
-                            pool=10.0,
+                            connect=15,  # keep connection timeout bounded
+                            read=120,
+                            write=120,
+                            pool=60.0,
                         ),
                         limits=httpx.Limits(
-                            max_keepalive_connections=5,
-                            max_connections=20,
-                            keepalive_expiry=15.0,
+                            max_connections=100,
+                            max_keepalive_connections=32,
+                            keepalive_expiry=15.0,  # slightly longer to reduce reconnect churn in containers
                         ),
                     )
-                    # Simple incremental backoff (could be parameterized later)
-                    await asyncio.sleep(0.5 * attempt)
-                except Exception:
+                    # MIN_BACKOFF = 30.0
+                    # MAX_BACKOFF = 120.0
+                    # base = min(MAX_BACKOFF, 1.0 * (2 ** (attempt - 1)))   # growth
+                    # # random in [0.5*base, base], then floor at 30s
+                    # sleep_s = max(MIN_BACKOFF, random.uniform(base * 0.5, base))
+                    # await asyncio.sleep(sleep_s)
+                except httpx.HTTPError as e:
                     # Non-transient error; surface immediately.
-                    raise
-            else:  # pragma: no cover - logic safeguard
-                # Should not hit due to break/raise logic above; keep mypy happy.
-                if last_error:
-                    raise last_error
+                    raise RuntimeError(
+                        f"Embeddings REST call failed: {e.__class__.__name__} | url={url}"
+                    ) from e
             assert response is not None, "Internal error: response not obtained after retries"
-            response.raise_for_status()
+            # response.raise_for_status()
 
             response_data = response.json()
             headers = response.headers
