@@ -20,6 +20,12 @@ from fnllm.openai.errors import OpenAINoChoicesAvailableError
 if TYPE_CHECKING:
     from fnllm.limiting.types import Manifest
 
+class RetryableHttpStatusError(RuntimeError):
+    def __init__(self, status_code: int, message: str = ""):
+        super().__init__(f"retryable HTTP {status_code}: {message}")
+        self.status_code = status_code
+
+
 OPENAI_RETRYABLE_ERRORS: Final[list[type[Exception]]] = [
     RateLimitError,
     APIConnectionError,
@@ -31,8 +37,10 @@ OPENAI_RETRYABLE_ERRORS: Final[list[type[Exception]]] = [
     httpx.ReadError, httpcore.ReadError,
     httpx.WriteError, httpcore.WriteError,
     httpx.ConnectError, httpcore.ConnectError,
-    httpx.PoolTimeout, httpx.ProxyError,
-    httpx.RemoteProtocolError, httpcore.LocalProtocolError, httpcore.RemoteProtocolError
+    httpx.PoolTimeout, httpcore.PoolTimeout,
+    httpx.ProxyError, httpcore.ProxyError,
+    httpx.RemoteProtocolError, httpcore.LocalProtocolError, httpcore.RemoteProtocolError,
+    RetryableHttpStatusError
 ]
 
 
